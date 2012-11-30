@@ -80,10 +80,11 @@ public class SenseiSchema {
         public String delim = ",";
         public Class type = null;
         public String name;
-        // indicates if the field name has any wildcards in it.
-        public boolean hasWildCards;
-        // compiled pattern if the field name has wildcards
-        public Pattern wildCardPattern;
+        // indicates if the field name has any regular expression in it.
+        public boolean hasRegex;
+        // compiled pattern if the field name has regex
+        public Pattern regexPattern;
+        public String formatString;
     }
 
     public static class FacetDefinition {
@@ -91,9 +92,9 @@ public class SenseiSchema {
         public String type;
         public String column;
         public Boolean dynamic;
-        public Boolean wildcard;
         public Map<String, List<String>> params;
         public Set<String> dependSet = new HashSet<String>();
+
 
         public static FacetDefinition valueOf(JSONObject facet) {
             try {
@@ -101,6 +102,7 @@ public class SenseiSchema {
                 ret.name = facet.getString("name");
                 ret.type = facet.getString("type");
                 ret.column = facet.optString("column", ret.name);
+                ret.dynamic = facet.optBoolean("dynamic");
                 JSONArray depends = facet.optJSONArray("depends");
                 if (depends != null) {
                     for (int i = 0; i < depends.length(); ++i) {
@@ -113,7 +115,6 @@ public class SenseiSchema {
 
                 JSONArray paramList = facet.optJSONArray("params");
                 ret.params = SenseiFacetHandlerBuilder.parseParams(paramList);
-                ret.wildcard = facet.optBoolean("wildcard", false);
                 return ret;
             } catch (Exception ex) {
                 throw new RuntimeException(ex);
@@ -205,11 +206,10 @@ public class SenseiSchema {
                 if (delimString != null && delimString.trim().length() > 0) {
                     fdef.delim = delimString;
                 }
-                fdef.hasWildCards = column.optBoolean("wildcard");
-
-                if (fdef.hasWildCards) {
-                    Assert.isTrue(fdef.fromField.equals(fdef.name), "Cannot have a different \"from\" field with wildcards");
-                    fdef.wildCardPattern = Pattern.compile(fdef.name);
+                fdef.hasRegex = column.optBoolean("regex");
+                if (fdef.hasRegex) {
+                    Assert.isTrue(fdef.fromField.equals(fdef.name), "Cannot have a different \"from\" field with regex");
+                    fdef.regexPattern = Pattern.compile(fdef.name);
                 }
 
                 schema._fieldDefMap.put(n, fdef);
@@ -255,7 +255,7 @@ public class SenseiSchema {
                     }
                     if (f.isEmpty())
                         throw new ConfigurationException("Date format cannot be empty.");
-
+                    fdef.formatString = f;
                     fdef.formatter = new SimpleDateFormat(f);
                     fdef.type = Date.class;
                 } else if (t.equals("text")) {

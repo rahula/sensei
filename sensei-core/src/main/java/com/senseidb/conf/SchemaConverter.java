@@ -93,7 +93,7 @@ public class SchemaConverter
 
           columnObj.put("multi", Boolean.parseBoolean(column.getAttribute("multi")));
           columnObj.put("activity", Boolean.parseBoolean(column.getAttribute("activity")));
-          columnObj.put("wildcard", Boolean.parseBoolean(column.getAttribute("wildcard")));
+          columnObj.put("regex", Boolean.parseBoolean(column.getAttribute("regex")));
 
             String delimString = column.getAttribute("delimiter");
           if (delimString != null && delimString.trim().length() > 0)
