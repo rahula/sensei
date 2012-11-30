@@ -403,6 +403,7 @@ public class DefaultStreamingIndexingManager implements SenseiIndexingManager<JS
         }
       }
       catch(Exception e){
+        logger.error(e, e);
         throw new ZoieException(e.getMessage(),e);
       }
     }
