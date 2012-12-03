@@ -440,7 +440,8 @@ public class SenseiServerBuilder implements SenseiConfParams {
         SenseiSystemInfo sysInfo = null;
 
         try {
-            sysInfo = SenseiFacetHandlerBuilder.buildFacets(_schemaDoc, pluginRegistry, facetHandlers, runtimeFacetHandlerFactories, pluggableSearchEngineManager);
+            sysInfo = SenseiFacetHandlerBuilder.buildFacets(_senseiSchema, pluginRegistry, facetHandlers,
+                    runtimeFacetHandlerFactories,  pluggableSearchEngineManager);
         } catch (JSONException jse) {
             throw new ConfigurationException(jse.getMessage(), jse);
         }
@@ -502,7 +503,13 @@ public class SenseiServerBuilder implements SenseiConfParams {
                                                       List<RuntimeFacetHandlerFactory<?, ?>> runtimeFacetHandlerFactories, ZoieIndexableInterpreter interpreter)
             throws ConfigurationException {
         String indexerType = _senseiConf.getString(SENSEI_INDEXER_TYPE, "zoie");
-        SenseiIndexReaderDecorator decorator = new SenseiIndexReaderDecorator(facetHandlers, runtimeFacetHandlerFactories);
+        SenseiIndexReaderDecorator decorator = new SenseiIndexReaderDecorator(
+                facetHandlers,
+                runtimeFacetHandlerFactories,
+                _senseiSchema,
+                pluginRegistry,
+                pluggableSearchEngineManager);
+
         File idxDir = new File(_senseiConf.getString(SENSEI_INDEX_DIR));
         SenseiZoieFactory<?> zoieSystemFactory = null;
 

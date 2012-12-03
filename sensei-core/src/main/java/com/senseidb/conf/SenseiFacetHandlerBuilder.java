@@ -19,7 +19,6 @@
 package com.senseidb.conf;
 
 import java.text.ParseException;
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Date;
 import java.util.HashMap;
@@ -27,7 +26,6 @@ import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Set;
 
 import org.apache.commons.configuration.ConfigurationException;
@@ -56,17 +54,13 @@ import com.browseengine.bobo.facets.impl.RangeFacetHandler;
 import com.browseengine.bobo.facets.impl.SimpleFacetHandler;
 import com.browseengine.bobo.facets.range.MultiRangeFacetHandler;
 import com.senseidb.conf.SenseiSchema.FacetDefinition;
+import com.senseidb.conf.SenseiSchema.FieldDefinition;
 import com.senseidb.indexing.DefaultSenseiInterpreter;
-import com.senseidb.indexing.activity.ActivityValues;
-import com.senseidb.indexing.activity.CompositeActivityManager;
-import com.senseidb.indexing.activity.CompositeActivityValues;
-import com.senseidb.indexing.activity.facet.ActivityRangeFacetHandler;
-import com.senseidb.indexing.activity.primitives.ActivityIntValues;
-import com.senseidb.indexing.activity.time.TimeAggregatedActivityValues;
 import com.senseidb.plugin.SenseiPluginRegistry;
 import com.senseidb.search.facet.UIDFacetHandler;
 import com.senseidb.search.plugin.PluggableSearchEngineManager;
 import com.senseidb.search.req.SenseiSystemInfo;
+import com.senseidb.search.req.SenseiSystemInfo.SenseiFacetInfo;
 
 public class SenseiFacetHandlerBuilder {
 
@@ -75,75 +69,38 @@ public class SenseiFacetHandlerBuilder {
 
     public static String UID_FACET_NAME = "_uid";
 
-    private static Map<String, TermListFactory<?>> getPredefinedTermListFactoryMap(JSONObject schemaObj) throws JSONException, ConfigurationException {
-        HashMap<String, TermListFactory<?>> retMap = new HashMap<String, TermListFactory<?>>();
-        JSONObject tableElem = schemaObj.optJSONObject("table");
-        if (tableElem == null) {
-            throw new ConfigurationException("empty schema");
+    /**
+     * Create a new {@link TermListFactory} for a given facet
+     * @param facetDef facet definition for which to create a term list factory.
+     * @param fieldDef corresponding field definition for the facet.
+     */
+    private static  TermListFactory<?> getTermListFactory(FacetDefinition facetDef, FieldDefinition fieldDef) {
+        String type = facetDef.type;
+
+        if (type.equals("int")) {
+            return  DefaultSenseiInterpreter.getTermListFactory(int.class);
+        } else if (type.equals("short")) {
+            return DefaultSenseiInterpreter.getTermListFactory(short.class);
+        } else if (type.equals("long")) {
+            return DefaultSenseiInterpreter.getTermListFactory(long.class);
+        } else if (type.equals("float")) {
+            return DefaultSenseiInterpreter.getTermListFactory(float.class);
+        } else if (type.equals("double")) {
+            return DefaultSenseiInterpreter.getTermListFactory(double.class);
+        } else if (type.equals("char")) {
+            return DefaultSenseiInterpreter.getTermListFactory(char.class);
+        } else if (type.equals("string")) {
+            return TermListFactory.StringListFactory;
+        } else if (type.equals("boolean")) {
+            return DefaultSenseiInterpreter.getTermListFactory(boolean.class);
+        } else if (type.equals("date")) {
+            String f = fieldDef.formatString;
+            if (f.isEmpty())
+                throw new RuntimeException("Date format cannot be empty.");
+            else
+                return new PredefinedTermListFactory<Date>(Date.class, f);
         }
-        JSONArray columns = tableElem.optJSONArray("columns");
-
-        int count = 0;
-        if (columns != null) {
-            count = columns.length();
-        }
-
-        for (int i = 0; i < count; ++i) {
-            JSONObject column = columns.getJSONObject(i);
-            try {
-                String n = column.getString("name");
-                String t = column.getString("type");
-
-                TermListFactory<?> factory = null;
-
-                if (t.equals("int")) {
-                    factory = DefaultSenseiInterpreter
-                            .getTermListFactory(int.class);
-                } else if (t.equals("short")) {
-                    factory = DefaultSenseiInterpreter
-                            .getTermListFactory(short.class);
-                } else if (t.equals("long")) {
-                    factory = DefaultSenseiInterpreter
-                            .getTermListFactory(long.class);
-                } else if (t.equals("float")) {
-                    factory = DefaultSenseiInterpreter
-                            .getTermListFactory(float.class);
-                } else if (t.equals("double")) {
-                    factory = DefaultSenseiInterpreter
-                            .getTermListFactory(double.class);
-                } else if (t.equals("char")) {
-                    factory = DefaultSenseiInterpreter
-                            .getTermListFactory(char.class);
-                } else if (t.equals("string")) {
-                    factory = TermListFactory.StringListFactory;
-                } else if (t.equals("boolean")) {
-                    factory = DefaultSenseiInterpreter
-                            .getTermListFactory(boolean.class);
-                } else if (t.equals("date")) {
-
-                    String f = "";
-                    try {
-                        f = column.optString("format");
-                    } catch (Exception ex) {
-                        logger.error(ex.getMessage(), ex);
-                    }
-
-                    if (f.isEmpty())
-                        throw new Exception("Date format cannot be empty.");
-                    else
-                        factory = new PredefinedTermListFactory<Date>(Date.class, f);
-                }
-
-                if (factory != null) {
-                    retMap.put(n, factory);
-                }
-
-            } catch (Exception e) {
-                throw new ConfigurationException("Error parsing schema: "
-                        + column, e);
-            }
-        }
-        return retMap;
+        return null;
     }
 
     static SimpleFacetHandler buildSimpleFacetHandler(String name, String fieldName, Set<String> depends, TermListFactory<?> termListFactory) {
@@ -240,8 +197,7 @@ public class SenseiFacetHandlerBuilder {
         }
     }
 
-    private static RuntimeFacetHandlerFactory<?, ?> getHistogramFacetHandlerFactory(JSONObject facet,
-                                                                                    String name,
+    private static RuntimeFacetHandlerFactory<?, ?> getHistogramFacetHandlerFactory(String name,
                                                                                     Map<String, List<String>> paramMap)
             throws ConfigurationException {
         String dataType = getRequiredSingleParam(paramMap, "datatype");
@@ -304,143 +260,136 @@ public class SenseiFacetHandlerBuilder {
         };
     }
 
-    public static SenseiSystemInfo buildFacets(JSONObject schemaObj, SenseiPluginRegistry pluginRegistry,
-                                               List<FacetHandler<?>> facets, List<RuntimeFacetHandlerFactory<?, ?>> runtimeFacets, PluggableSearchEngineManager pluggableSearchEngineManager)
+    /**
+     *
+     * Creates {@link FacetHandler} and or {@link RuntimeFacetHandlerFactory} for a
+     * give facet.
+     * @param facet facet definition for which to create facet handlers
+     * @param field field definition corresponding to the facet.
+     * @param facets Any new facet handlers created will be added to this list.
+     * @param runtimeFacets Any facet handler factories will be added to this list.
+     * @return   {@link SenseiFacetInfo} containing information about the facet handler.
+     */
+    public static SenseiFacetInfo getFacetHandler(FacetDefinition facet,
+                                                  FieldDefinition field,
+                                                  List<FacetHandler<?>> facets,
+                                                  List<RuntimeFacetHandlerFactory<?, ?>> runtimeFacets,
+                                                  SenseiPluginRegistry pluginRegistry) throws  ConfigurationException {
+        String type = facet.type;
+        String fieldName = facet.column;
+        Set<String> dependSet = facet.dependSet;
+
+        SenseiFacetInfo facetInfo = new SenseiFacetInfo(facet.name);
+        Map<String, String> facetProps = new HashMap<String, String>();
+        facetProps.put("type", type);
+        facetProps.put("column", fieldName);
+        facetProps.put("column_type", field.columnType);
+        facetProps.put("depends", dependSet.toString());
+        Map<String, List<String>> paramMap = facet.params;
+        facetInfo.setProps(facetProps);
+
+        FacetHandler<?> facetHandler = null;
+        if (type.equals("simple")) {
+            facetHandler = buildSimpleFacetHandler(facet.name, fieldName, dependSet, getTermListFactory(facet, field));
+        } else if (type.equals("path")) {
+            facetHandler = buildPathHandler(facet.name, fieldName, paramMap);
+        } else if (type.equals("range")) {
+            if (field.isMulti) {
+                facetHandler = new MultiRangeFacetHandler(facet.name, fieldName, null,
+                        getTermListFactory(facet, field), buildPredefinedRanges(paramMap));
+            } else {
+            facetHandler = buildRangeHandler(facet.name, fieldName,
+                    getTermListFactory(facet, field), paramMap);
+            }
+        } else if (type.equals("multi")) {
+            facetHandler = buildMultiHandler(facet.name, fieldName, getTermListFactory(facet, field),
+                    dependSet);
+        } else if (type.equals("compact-multi")) {
+            facetHandler = buildCompactMultiHandler(facet.name, fieldName, dependSet,
+                    getTermListFactory(facet, field));
+        } else if (type.equals("weighted-multi")) {
+            facetHandler = buildWeightedMultiHandler(facet.name, fieldName, getTermListFactory(facet, field)
+                    , dependSet);
+        } else if (type.equals("attribute")) {
+            facetHandler = new AttributesFacetHandler(facet.name, fieldName,
+                    getTermListFactory(facet, field),
+                    null, facetProps);
+        } else if (type.equals("histogram")) {
+            // A histogram facet handler is always dynamic
+            RuntimeFacetHandlerFactory<?, ?> runtimeFacetFactory = getHistogramFacetHandlerFactory(facet.name, paramMap);
+            runtimeFacets.add(runtimeFacetFactory);
+            facetInfo.setRunTime(true);
+        } else if (type.equals("dynamicTimeRange")) {
+            if (dependSet.isEmpty()) {
+                Assert.isTrue(fieldName != null && fieldName.length() > 0, "Facet handler " + facet.name
+                        + " requires either depends or column attributes");
+                RangeFacetHandler internalFacet = new RangeFacetHandler(facet.name + "_internal",
+                        fieldName, new PredefinedTermListFactory(Long.class, DynamicTimeRangeFacetHandler.NUMBER_FORMAT), null);
+                facets.add(internalFacet);
+                dependSet.add(internalFacet.getName());
+            }
+            RuntimeFacetHandlerFactory<?, ?> runtimeFacetFactory = getDynamicTimeFacetHandlerFactory(facet.name, fieldName, dependSet, paramMap);
+            runtimeFacets.add(runtimeFacetFactory);
+            facetInfo.setRunTime(true);
+
+        } else if (type.equals("custom")) {
+            // Load from custom-facets spring configuration.
+            if (facet.dynamic) {
+                RuntimeFacetHandlerFactory<?, ?> runtimeFacetFactory = pluginRegistry.getRuntimeFacet(facet.name);
+                runtimeFacets.add(runtimeFacetFactory);
+                facetInfo.setRunTime(true);
+            } else {
+                facetHandler = pluginRegistry.getFacet(facet.name);
+            }
+        } else {
+            throw new IllegalArgumentException("type not supported: " + type);
+        }
+
+        if (facetHandler != null) {
+            facets.add(facetHandler);
+        }
+        return facetInfo;
+    }
+
+    /**
+     * Create all facet handlers based on the SenseiSchema and PluggableSearchEngineManager.
+     * @param schema {@link SenseiSchema} which has the facet and field definitions.
+     * @param pluginRegistry {@link SenseiPluginRegistry} used for instantiating any custom facet hanlders.
+     * @param facets Any {@link FacetHandler} created are added to this list.
+     * @param runtimeFacets Any {@link RuntimeFacetHandler} created are added to this list.
+     * @param pluggableSearchEngineManager A {@link PluggableSearchEngineManager} to add any FacetHandlers for facets
+     *                                     defined outside of SenseiSchema.
+     */
+    public static SenseiSystemInfo buildFacets(SenseiSchema schema,
+                                               SenseiPluginRegistry pluginRegistry,
+                                               List<FacetHandler<?>> facets,
+                                               List<RuntimeFacetHandlerFactory<?, ?>> runtimeFacets,
+                                               PluggableSearchEngineManager pluggableSearchEngineManager)
             throws JSONException, ConfigurationException {
-        Set<String> pluggableSearchEngineFacetNames = pluggableSearchEngineManager.getFacetNames();
+
         SenseiSystemInfo sysInfo = new SenseiSystemInfo();
-        JSONArray facetsList = schemaObj.optJSONArray("facets");
 
-        int count = 0;
+        Set<String> pluggableSearchEngineFacetNames = pluggableSearchEngineManager.getFacetNames();
 
-        if (facetsList != null) {
-            count = facetsList.length();
-        }
-
-        if (count <= 0) {
-            return sysInfo;
-        }
-
-        JSONObject table = schemaObj.optJSONObject("table");
-        if (table == null) {
-            throw new ConfigurationException("Empty schema");
-        }
-        JSONArray columns = table.optJSONArray("columns");
-        Map<String, JSONObject> columnMap = new HashMap<String, JSONObject>();
-        for (int i = 0; i < columns.length(); ++i) {
-            JSONObject column = columns.getJSONObject(i);
-            try {
-                String name = column.getString("name");
-                columnMap.put(name, column);
-            } catch (Exception e) {
-                throw new ConfigurationException("Error parsing schema: ", e);
-            }
-        }
-
-        Map<String, TermListFactory<?>> termListFactoryMap = getPredefinedTermListFactoryMap(schemaObj);
-
+        Map<String, FieldDefinition> fields = schema.getFieldDefMap();
         Set<SenseiSystemInfo.SenseiFacetInfo> facetInfos = new HashSet<SenseiSystemInfo.SenseiFacetInfo>();
-        for (int i = 0; i < count; ++i) {
 
-            JSONObject facet = facetsList.getJSONObject(i);
-            try {
-                String name = facet.getString("name");
-                if (UID_FACET_NAME.equals(name)) {
-                    logger.error("facet name: " + UID_FACET_NAME + " is reserved, skipping...");
-                    continue;
-                }
-                if (pluggableSearchEngineFacetNames.contains(name)) {
-                    continue;
-                }
-                String type = facet.getString("type");
-                String fieldName = facet.optString("column", name);
-                Set<String> dependSet = new HashSet<String>();
-                JSONArray dependsArray = facet.optJSONArray("depends");
+        for (FacetDefinition facetDef: schema.getFacets()) {
+            String name = facetDef.name;
+            FieldDefinition fieldDef = fields.get(facetDef.column);
 
-                if (dependsArray != null) {
-                    int depCount = dependsArray.length();
-                    for (int k = 0; k < depCount; ++k) {
-                        dependSet.add(dependsArray.getString(k));
-                    }
-                }
-
-                SenseiSystemInfo.SenseiFacetInfo facetInfo = new SenseiSystemInfo.SenseiFacetInfo(name);
-                Map<String, String> facetProps = new HashMap<String, String>();
-                facetProps.put("type", type);
-                facetProps.put("column", fieldName);
-                JSONObject column = columnMap.get(fieldName);
-                String columnType = (column == null) ? "" : column.optString("type", "");
-                facetProps.put("column_type", columnType);
-                facetProps.put("depends", dependSet.toString());
-
-                JSONArray paramList = facet.optJSONArray("params");
-
-                Map<String, List<String>> paramMap = parseParams(paramList);
-
-                for (Entry<String, List<String>> entry : paramMap.entrySet()) {
-                    facetProps.put(entry.getKey(), entry.getValue().toString());
-                }
-
-                facetInfo.setProps(facetProps);
-                facetInfos.add(facetInfo);
-
-                FacetHandler<?> facetHandler = null;
-                if (type.equals("simple")) {
-                    facetHandler = buildSimpleFacetHandler(name, fieldName, dependSet, termListFactoryMap.get(fieldName));
-                } else if (type.equals("path")) {
-                    facetHandler = buildPathHandler(name, fieldName, paramMap);
-                } else if (type.equals("range")) {
-                    if (column.optBoolean("multi")) {
-                        facetHandler = new MultiRangeFacetHandler(name, fieldName, null, termListFactoryMap.get(fieldName), buildPredefinedRanges(paramMap));
-                    } else {
-                        facetHandler = buildRangeHandler(name, fieldName, termListFactoryMap.get(fieldName), paramMap);
-                    }
-                } else if (type.equals("multi")) {
-                    facetHandler = buildMultiHandler(name, fieldName, termListFactoryMap.get(fieldName), dependSet);
-                } else if (type.equals("compact-multi")) {
-                    facetHandler = buildCompactMultiHandler(name, fieldName, dependSet, termListFactoryMap.get(fieldName));
-
-                } else if (type.equals("weighted-multi")) {
-                    facetHandler = buildWeightedMultiHandler(name, fieldName, termListFactoryMap.get(fieldName), dependSet);
-                } else if (type.equals("attribute")) {
-                    facetHandler = new AttributesFacetHandler(name, fieldName, termListFactoryMap.get(fieldName), null, facetProps);
-                } else if (type.equals("histogram")) {
-                    // A histogram facet handler is always dynamic
-                    RuntimeFacetHandlerFactory<?, ?> runtimeFacetFactory = getHistogramFacetHandlerFactory(facet, name, paramMap);
-                    runtimeFacets.add(runtimeFacetFactory);
-                    facetInfo.setRunTime(true);
-                } else if (type.equals("dynamicTimeRange")) {
-                    if (dependSet.isEmpty()) {
-                        Assert.isTrue(fieldName != null && fieldName.length() > 0, "Facet handler " + name + " requires either depends or column attributes");
-                        RangeFacetHandler internalFacet = new RangeFacetHandler(name + "_internal", fieldName, new PredefinedTermListFactory(Long.class, DynamicTimeRangeFacetHandler.NUMBER_FORMAT), null);
-                        facets.add(internalFacet);
-                        dependSet.add(internalFacet.getName());
-                    }
-                    RuntimeFacetHandlerFactory<?, ?> runtimeFacetFactory = getDynamicTimeFacetHandlerFactory(name, fieldName, dependSet, paramMap);
-                    runtimeFacets.add(runtimeFacetFactory);
-                    facetInfo.setRunTime(true);
-
-                } else if (type.equals("custom")) {
-                    boolean isDynamic = facet.optBoolean("dynamic");
-                    // Load from custom-facets spring configuration.
-                    if (isDynamic) {
-                        RuntimeFacetHandlerFactory<?, ?> runtimeFacetFactory = pluginRegistry.getRuntimeFacet(name);
-                        runtimeFacets.add(runtimeFacetFactory);
-                        facetInfo.setRunTime(true);
-                    } else {
-                        facetHandler = pluginRegistry.getFacet(name);
-                    }
-                } else {
-                    throw new IllegalArgumentException("type not supported: " + type);
-                }
-
-                if (facetHandler != null) {
-                    facets.add(facetHandler);
-                }
-            } catch (Exception e) {
-                throw new ConfigurationException("Error parsing schema: "
-                        + facet, e);
+            if (fieldDef != null && fieldDef.hasRegex) {
+                continue;
             }
+            if (UID_FACET_NAME.equals(name)) {
+                logger.error("facet name: " + UID_FACET_NAME + " is reserved, skipping...");
+                continue;
+            }
+            if (pluggableSearchEngineFacetNames.contains(name)) {
+                continue;
+            }
+            SenseiSystemInfo.SenseiFacetInfo facetInfo = getFacetHandler(facetDef, fieldDef, facets, runtimeFacets, pluginRegistry);
+            facetInfos.add(facetInfo);
         }
 
         facets.addAll((Collection<? extends FacetHandler<?>>) pluggableSearchEngineManager.createFacetHandlers());
@@ -451,7 +400,6 @@ public class SenseiFacetHandlerBuilder {
 
         return sysInfo;
     }
-
 
     public static RuntimeFacetHandlerFactory<?, ?> getDynamicTimeFacetHandlerFactory(final String name, String fieldName, Set<String> dependSet,
                                                                                      final Map<String, List<String>> paramMap) {

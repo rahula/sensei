@@ -42,7 +42,7 @@ public class DemoZoieSystemFactory<T> extends SenseiZoieSystemFactory<T>
   }
   
   public DemoZoieSystemFactory(File idxDir,ZoieIndexableInterpreter<T> interpreter,ZoieConfig zoieConfig){
-    super(idxDir, DIRECTORY_MODE.SIMPLE, interpreter, new SenseiIndexReaderDecorator(), zoieConfig);
+    super(idxDir, DIRECTORY_MODE.SIMPLE, interpreter, null, zoieConfig);
   }
   
   @Override

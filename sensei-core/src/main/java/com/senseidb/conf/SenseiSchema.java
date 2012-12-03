@@ -78,6 +78,7 @@ public class SenseiSchema {
         public boolean isMulti;
         public boolean isActivity;
         public String delim = ",";
+        public String columnType;
         public Class type = null;
         public String name;
         // indicates if the field name has any regular expression in it.
@@ -191,12 +192,12 @@ public class SenseiSchema {
             JSONObject column = columns.getJSONObject(i);
             try {
                 String n = column.getString("name");
-                String t = column.getString("type");
                 String frm = column.optString("from");
 
                 FieldDefinition fdef = new FieldDefinition();
                 fdef.formatter = null;
                 fdef.fromField = frm.length() > 0 ? frm : n;
+                fdef.columnType = column.getString("type");
 
                 fdef.isMeta = true;
                 fdef.isMulti = column.optBoolean("multi");
@@ -214,38 +215,38 @@ public class SenseiSchema {
 
                 schema._fieldDefMap.put(n, fdef);
 
-                if (t.equals("int")) {
+                if (fdef.columnType.equals("int")) {
                     MetaType metaType = DefaultSenseiInterpreter.CLASS_METATYPE_MAP.get(int.class);
                     String formatString = DefaultSenseiInterpreter.DEFAULT_FORMAT_STRING_MAP.get(metaType);
                     fdef.formatter = new DecimalFormat(formatString, new DecimalFormatSymbols(Locale.US));
                     fdef.type = int.class;
-                } else if (t.equals("short")) {
+                } else if (fdef.columnType.equals("short")) {
                     MetaType metaType = DefaultSenseiInterpreter.CLASS_METATYPE_MAP.get(short.class);
                     String formatString = DefaultSenseiInterpreter.DEFAULT_FORMAT_STRING_MAP.get(metaType);
                     fdef.formatter = new DecimalFormat(formatString, new DecimalFormatSymbols(Locale.US));
                     fdef.type = int.class;
-                } else if (t.equals("long")) {
+                } else if (fdef.columnType.equals("long")) {
                     MetaType metaType = DefaultSenseiInterpreter.CLASS_METATYPE_MAP.get(long.class);
                     String formatString = DefaultSenseiInterpreter.DEFAULT_FORMAT_STRING_MAP.get(metaType);
                     fdef.formatter = new DecimalFormat(formatString, new DecimalFormatSymbols(Locale.US));
                     fdef.type = long.class;
-                } else if (t.equals("float")) {
+                } else if (fdef.columnType.equals("float")) {
                     MetaType metaType = DefaultSenseiInterpreter.CLASS_METATYPE_MAP.get(float.class);
                     String formatString = DefaultSenseiInterpreter.DEFAULT_FORMAT_STRING_MAP.get(metaType);
                     fdef.formatter = new DecimalFormat(formatString, new DecimalFormatSymbols(Locale.US));
                     fdef.type = double.class;
-                } else if (t.equals("double")) {
+                } else if (fdef.columnType.equals("double")) {
                     MetaType metaType = DefaultSenseiInterpreter.CLASS_METATYPE_MAP.get(double.class);
                     String formatString = DefaultSenseiInterpreter.DEFAULT_FORMAT_STRING_MAP.get(metaType);
                     fdef.formatter = new DecimalFormat(formatString, new DecimalFormatSymbols(Locale.US));
                     fdef.type = double.class;
-                } else if (t.equals("char")) {
+                } else if (fdef.columnType.equals("char")) {
                     fdef.formatter = null;
-                } else if (t.equals("string")) {
+                } else if (fdef.columnType.equals("string")) {
                     fdef.formatter = null;
-                } else if (t.equals("boolean")) {
+                } else if (fdef.columnType.equals("boolean")) {
                     fdef.formatter = null;
-                } else if (t.equals("date")) {
+                } else if (fdef.columnType.equals("date")) {
 
                     String f = "";
                     try {
@@ -258,7 +259,7 @@ public class SenseiSchema {
                     fdef.formatString = f;
                     fdef.formatter = new SimpleDateFormat(f);
                     fdef.type = Date.class;
-                } else if (t.equals("text")) {
+                } else if (fdef.columnType.equals("text")) {
                     fdef.isMeta = false;
                     String idxString = column.optString("index", null);
                     String storeString = column.optString("store", null);

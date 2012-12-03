@@ -357,9 +357,9 @@ public class DefaultJsonSchemaInterpreter extends
 
                 while (keyIterator.hasNext()) {
                     String docField = keyIterator.next().toString();
-                    if (fieldDef.wildCardPattern.matcher(docField).matches()) {
-                        String val = input.optString(docField, null);
-                        addField(docField, val, fieldDef, doc);
+                    if (fieldDef.regexPattern.matcher(docField).matches()) {
+                            String val = input.optString(docField, null);
+                            addField(docField, val, fieldDef, doc);
                     }
                 }
             }
@@ -375,7 +375,7 @@ public class DefaultJsonSchemaInterpreter extends
                         if (nonLuceneFields.contains(entry.getKey())) {
                             continue;
                         }
-                        if (fldDef.hasWildCards) {
+                        if (fldDef.hasRegex) {
                             processWildCards(name, fldDef, filtered, luceneDoc);
                         }
                         else {
